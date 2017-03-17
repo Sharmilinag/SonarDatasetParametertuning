@@ -1,0 +1,257 @@
+---
+title: "Machine Learning Exercise"
+output: html_notebook
+---
+
+
+1.	Find and download a data set of your choosing that can be used for classification
+2.	Choose a model type of your liking (e.g. Logistic Regression, SVM, or Random Forest, etc.) and train it using 5 distinct hyperparameters
+3.	Use cross-validation to determine the best of these parameter choices
+ 
+
+```{r include=FALSE}
+knitr::opts_chunk$set
+install.packages("mlr")
+install.packages('mlr', repo='http://cran.fiocruz.br/')
+install.packages("e1071")
+install.packages("randomForest")
+install.packages("caret")
+install.packages("ggplot2")
+install.packages("glmnet")
+install.packages("mice")
+install.packages("mlbench")
+install.packages("kernlab")
+#install.packages("datasets")
+library(mlr)
+library(e1071)
+library(randomForest)
+library(caret)
+library(ggplot2)
+library(glmnet)
+library(mice)
+#library(datasets)
+library(mlbench)
+library(kernlab)
+
+```
+The code below divides sonar dataset from mlbench library into train and test dataset and takes the default parameter value of support vector machine and applying it to the sonar dataset from mlbench library and showing the misclassification error rate for the model.
+
+```{r}
+knitr::opts_chunk$set
+data("Sonar")
+input <- fix("Sonar")
+summary(input)
+names(input)
+dim(input)
+n = getTaskSize(sonar.task)
+train.set = sample(n, size = round(2/3 * n))
+test.set = setdiff(seq_len(n), train.set)
+# taking default parameter value
+rdesc = makeResampleDesc("CV",iters =3L)
+r = resample("classif.ksvm", sonar.task, resampling = rdesc)
+print(r)
+```
+the code below creates c parameter value in continuous space 2^(-10) : 2^10) and applying it to the sonar dataset from mlbench library and showing the misclassification error rate for the model and calculating the optimal parameter value using crossvalidation 3 iterations
+```{r}
+knitr::opts_chunk$set
+ps1 = makeParamSet(makeNumericParam("C",lower = -5 , upper = 5,trafo = function(x) 2^(x)))
+ctrl = makeTuneControlRandom(maxit = 100L)
+rdesc1 = makeResampleDesc("CV",iters = 3L)
+r1 = tuneParams("classif.ksvm",sonar.task , control = ctrl,resampling = rdesc1 ,par.set = ps1)
+print(r1)
+
+```
+Generate Hyperparameter effect data from cross validation tuning results
+```{r}
+knitr::opts_chunk$set
+data1 = generateHyperParsEffectData(r1)
+```
+Visualizing data with respect to parameter and misclassification error rate and the plot explains that our optimal performance is somewhere in the region between 2^2.5 and 2^5
+
+```{r}
+plotHyperParsEffect(data, x = "C", y = "mmce.test.mean")
+```
+creating a learner and setting the optimal hyperparameter value
+```{r}
+knitr::opts_chunk$set
+lrn1 = makeLearner("classif.ksvm",predict.type = "prob")
+lrn1 = setHyperPars(lrn1, par.vals = r1$x)
+```
+train a model with training set and estimating generalize performance of our model and plot a ROC curve of the false positive and true positive rates (fpr and tpr) and also compute error rates(mmce) and also calculate area under auc
+```{r}
+tr = train(lrn1, sonar.task,subset = train.set )
+pred = predict(tr, sonar.task ,subset = test.set)
+df = generateThreshVsPerfData(pred,measures = list(fpr,tpr,mmce))
+plotROCCurves(df)
+performance(pred, auc)
+```
+Here we are getting a auc of 96%.that means the performance is 96%.So with C hyperparameter our model is giving a prediction accuracy of 96% and which is a excellent result.
+
+The code below creates sigma parameter value in continuous space 2^(-10) : 2^10) and applying it to the sonar dataset from mlbench library and showing the misclassification error rate for the model and calculating the optimal parameter value using crossvalidation 3 iterations
+```{r}
+knitr::opts_chunk$set
+ps2 = makeParamSet(makeNumericParam("sigma",lower = -10 , upper = 10 , trafo = function(x) 2^(x)))
+ctrl = makeTuneControlRandom(maxit = 100L)
+rdesc2 = makeResampleDesc("CV",iters = 3L)
+r2 = tuneParams("classif.ksvm",sonar.task , control = ctrl,resampling = rdesc2 ,par.set = ps2)
+print(r2)
+```
+Generate Hyperparameter effect data from cross validation tuning results and Visualizing data with respect to parameter and misclassification error rate and the plot explains that our optimal performance is somewhere in the region between 2^-5.2 and 2^-4.8
+```{r}
+data2 = generateHyperParsEffectData(r2)
+plotHyperParsEffect(data2, x = "sigma", y = "mmce.test.mean")
+```
+creating a learner and setting the optimal hyperparameter value
+```{r}
+knitr::opts_chunk$set
+lrn2 = makeLearner("classif.ksvm",predict.type = "prob")
+lrn2 = setHyperPars(lrn2, par.vals = r2$x)
+```
+train a model with training set and estimating generalize performance of our model and plot a ROC curve of the false positive and true positive rates (fpr and tpr) and also compute error rates(mmce) and also calculate area under auc
+```{r}
+tr = train(lrn2, sonar.task,subset = train.set )
+pred = predict(tr, sonar.task ,subset = test.set)
+df = generateThreshVsPerfData(pred,measures = list(fpr,tpr,mmce))
+plotROCCurves(df)
+performance(pred, auc)
+```
+Here we are getting a auc of 96%.that means the performance is 96%.So with sigma hyperparameter our model is giving a prediction accuracy of 96% and which is a excellent result.
+
+The code below creates kernel parameter value and applying it to the sonar dataset from mlbench library and showing the misclassification error rate for the model and calculating the optimal parameter value using crossvalidation 3 iterations
+```{r}
+knitr::opts_chunk$set
+ps3 = makeParamSet(makeDiscreteParam("kernel",values = c("vanilladot","polydot","rbfdot")))
+ctrl = makeTuneControlRandom(maxit = 100L)
+rdesc3 = makeResampleDesc("CV",iters=3L)
+r3 = tuneParams("classif.ksvm",sonar.task , control = ctrl,resampling = rdesc3 ,par.set = ps3)
+print(r3)
+```
+Generate Hyperparameter effect data from cross validation tuning results and Visualizing data with respect to parameter and misclassification error rate and the plot explains that our optimal performance is for kernel rbfdot.
+```{r}
+data3 = generateHyperParsEffectData(r3)
+plotHyperParsEffect(data3, x = "kernel", y = "mmce.test.mean")
+
+```
+creating a learner and setting the optimal hyperparameter value
+```{r}
+knitr::opts_chunk$set
+lrn3 = makeLearner("classif.ksvm",predict.type = "prob")
+lrn3 = setHyperPars(lrn3, par.vals = r3$x)
+```
+train a model with training set and estimating generalize performance of our model and plot a ROC curve of the false positive and true positive rates (fpr and tpr) and also compute error rates(mmce) and also calculate area under auc
+```{r}
+tr = train(lrn3, sonar.task,subset = train.set )
+pred = predict(tr, sonar.task ,subset = test.set)
+df = generateThreshVsPerfData(pred,measures = list(fpr,tpr,mmce))
+plotROCCurves(df)
+performance(pred, auc)
+```
+Here we are getting a auc of 95%.that means the performance is 95%.So with sigma hyperparameter our model is giving a prediction accuracy of 95% and which is a excellent result.
+
+The code below creates degree parameter value and applying it to the sonar dataset from mlbench library and showing the misclassification error rate for the model and calculating the optimal parameter value using crossvalidation 3 iterations
+```{r}
+knitr::opts_chunk$set
+ps4 = makeParamSet(makeNumericParam("degree",lower = 2L,upper = 5L,requires = quote(kernel(coef="daniell"))))
+ctrl = makeTuneControlRandom(maxit = 100L)
+rdesc4 = makeResampleDesc("CV",iters = 2L)
+r4 = tuneParams("classif.ksvm",sonar.task , control = ctrl,resampling = rdesc4 ,par.set = ps4)
+print(r4)
+```
+creating a learner and setting the optimal hyperparameter value
+```{r}
+knitr::opts_chunk$set
+lrn4 = makeLearner("classif.ksvm",predict.type = "prob")
+lrn4 = setHyperPars(lrn4, par.vals = r4$x)
+```
+train a model with training set and estimating generalize performance of our model and plot a ROC curve of the false positive and true positive rates (fpr and tpr) and also compute error rates(mmce) and also calculate area under auc
+```{r}
+tr = train(lrn4, sonar.task,subset = train.set )
+pred = predict(tr, sonar.task ,subset = test.set)
+df = generateThreshVsPerfData(pred,measures = list(fpr,tpr,mmce))
+plotROCCurves(df)
+performance(pred, auc)
+```
+Here we are getting a auc of 94%.that means the performance is 94%.So with sigma hyperparameter our model is giving a prediction accuracy of 94% and which is a excellent result.
+
+The code below creates epsilon parameter value and applying it to the sonar dataset from mlbench library and showing the misclassification error rate for the model and calculating the optimal parameter value using crossvalidation 3 iterations
+```{r}
+knitr::opts_chunk$set
+ps5 = makeParamSet(makeNumericParam("epsilon",lower = -10 , upper = 10 ,trafo = function(x) 2^(x)))
+ctrl = makeTuneControlRandom(maxit = 100L)
+rdesc5 = makeResampleDesc("CV",iters = 3L)
+r5 = tuneParams("classif.ksvm",sonar.task , control = ctrl,resampling = rdesc5 ,par.set = ps5)
+print(r5)
+```
+Generate Hyperparameter effect data from cross validation tuning results and Visualizing data with respect to parameter and misclassification error rate.
+```{r}
+data5 = generateHyperParsEffectData(r5)
+plotHyperParsEffect(data5, x = "epsilon", y = "mmce.test.mean")
+
+```
+creating a learner and setting the optimal hyperparameter value
+```{r}
+knitr::opts_chunk$set
+lrn5 = makeLearner("classif.ksvm",predict.type = "prob")
+lrn5 = setHyperPars(lrn5, par.vals = r5$x)
+```
+train a model with training set and estimating generalize performance of our model and plot a ROC curve of the false positive and true positive rates (fpr and tpr) and also compute error rates(mmce) and also calculate area under auc
+```{r}
+tr = train(lrn5, sonar.task,subset = train.set )
+pred = predict(tr, sonar.task ,subset = test.set)
+df = generateThreshVsPerfData(pred,measures = list(fpr,tpr,mmce))
+plotROCCurves(df)
+performance(pred, auc)
+```
+Here we are getting a auc of 94%.that means the performance is 94%.So with sigma hyperparameter our model is giving a prediction accuracy of 94% and which is a excellent result.
+
+After comparing the values of misclassification error rate for the hyperparameters C,sigma,Kernel,degree and epsilon the misclassification error rate is very less for C and sigma parameter and also these two parameters giving best performance.So C and sigma are the best parameter choices.
+
+4.Visualize the performance in a figure (e.g. by drawing a relevant curve) 
+a.	Briefly describe your rationale for your choice of performance metric 
+b.	For example, how you decided the trade-off between precision and recall, or if you used any other metric and why
+
+Roc curve is a popular measures for simultaneously displaying two types of error true positive rate and false positive rate for all possible thresholds .It is an acronym of receiver operating characteristics .The overall performance of a classifier summarized over all possible thresholds and is given by the area under the curve. Roc curve is useful for comparing different classifier as it is taking into account for all possible threshold and eroor costs. ROC is used to select optimal model and discard suboptimal model from the cost context or class distribution. For highly unbalanced problem ROC is very popular as it is curved balances among the class sizes. When you have a biased dataset accuracy will be high but this indicates non ideal classifier. But in case of ROC we set a cutoff above which is represented as 1 and below is 0. This would mean that at the extremes you get the original situation where you have all 0's and all 1's (at a cutoff of 0 and 1 respectively), but also a series of intermediate states that fall within the graph that contains your ROC. So basically, what you're actually getting when you do an AUC over accuracy is something that will strongly discourage people going for models that are representative, but not discriminative, as this will only actually select for models that achieve false positive and true positive rates that are significantly above random chance, which is not guaranteed for accuracy. AUC does not need to provide a decision threshold but F1 measures require a decision threshold. AUC is much more statistically significant  and more discriminating measures and provides increased sensitivity in Analysis of variance.
+AUC measures a trade off between true positive rate (recall) and false positive rate trade. AUC is not a function of threshold. It is an evaluation of the classifier as threshold varies over all possible values. It is in a sense a broader metric, testing the quality of the internal value that the classifier generates and then compares to a threshold. It is not testing the quality of a particular choice of threshold. AUC measures how true positive rate (recall) and false positive rate trade off, so in that sense it is already measuring something else. More importantly, AUC is not a function of threshold. It is an evaluation of the classifier as threshold varies over all possible values. It is in a sense a broader metric, testing the quality of the internal value that the classifier generates and then compares to a threshold. It is not testing the quality of a particular choice of threshold.
+
+5.Finally, delete one randomly-selected feature value for 20% of the samples in your training set, and use an imputation method to try to make up for the missing data. 
+
+The below code is randomly seleting features using Recursive Feature Elimination algorithm from caret package and 
+```{r}
+knitr::opts_chunk$set
+set.seed(10)
+control <- rfeControl(functions = rfFuncs,method = "CV",number = 10)
+results <- rfe(Sonar[,1:60],Sonar[,61],sizes = c(1:60),rfeControl = control)
+print(results)
+```
+It randomly selects v9,v10,v11,v12,v48 features and after that we are deleting 20% of data from each of the randomly selected features and after that we are applying Predictive Mean Matching imputation method from MICE package and to make up for the missing value.
+```{r}
+knitr::opts_chunk$set
+inputtrain <- input[1:138,]
+inputtest <- input[139:208,] 
+inputtrain$V9[37:65]<-NA
+inputtrain$V10[25:55]<-NA
+inputtrain$V11[45:75]<-NA
+inputtrain$V12[55:85]<-NA
+inputtrain$V48[78:108]<-NA
+#fix(inputtrain)
+tempData <- mice(inputtrain,m=5,maxit=50,meth='pmm',seed=699)
+inputimpute <- complete(tempData,1)
+fix(inputimpute)
+```
+
+6.Visualize how the performance of your predictions has changed and describe the rationale for your choice of imputation method.
+
+Creating a training task for the new training set and train a model with that training set and estimating generalize performance of our model and plot a ROC curve of the false positive and true positive rates (fpr and tpr) and also compute error rates(mmce) and also calculate area under auc
+```{r}
+traintask1 = makeClassifTask(data = inputimpute , target = "Class")
+tr = train(lrn1, traintask1 )
+pred = predict(tr, sonar.task ,subset = test.set)
+df = generateThreshVsPerfData(pred,measures = list(fpr,tpr,mmce))
+plotROCCurves(df)
+performance(pred, auc)
+```
+
+After removing the data from randomly selected features and implementing imputation method and again training a model on the new training set we have got the prediction performance 87% which is lesser than previously achieved result.So the performance is reduced as the data value are changed.
+
+Predictive mean matching (PMM) is an attractive way to do multiple imputation for missing data, especially for imputing quantitative variables that are not normally distributed. Compared with standard methods based on linear regression and the normal distribution, PMM produces imputed values that are much more like real values. If the original variable is skewed, the imputed values will also be skewed. If the original variable is bounded by 0 and 100, the imputed values will also be bounded by 0 and 100. And if the real values are discrete (like number of children), the imputed values will also be discrete. That's because the imputed values are real values that are "borrowed" from individuals with real data. The PMM method is embedded in many software packages that implement an approach to multiple imputation variously known as multiple imputation by chained equations (MICE).
+
